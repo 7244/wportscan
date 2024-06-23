@@ -10,6 +10,17 @@
 #include <WITCH/TH/TH.h>
 #include <WITCH/IO/print.h>
 
+void _print(uint32_t fdint, const char *format, ...){
+  IO_fd_t fd_stdout;
+  IO_fd_set(&fd_stdout, fdint);
+  va_list argv;
+  va_start(argv, format);
+  IO_vprint(&fd_stdout, format, argv);
+  va_end(argv);
+}
+#define print(...) _print(FD_OUT, __VA_ARGS__)
+#define printe(...) _print(FD_ERR, __VA_ARGS__)
+
 #pragma pack(push, 1)
 typedef struct{
   uint32_t src;
@@ -84,12 +95,10 @@ bool param_help(pscan_t *pscan, const char *param){
   if(param != 0){
     PR_abort();
   }
-  IO_fd_t fd;
-  IO_fd_set(&fd, STDOUT_FILENO);
-  IO_print(&fd, "example usage:\n");
-  IO_print(&fd, "./exe --ip 127.0.0.1 --port 22 --syndelay .5 --savedelay 10\n");
-  IO_print(&fd, "./exe --ip 192.168.1.0/24 192.168.2.128-192.168.3.0 --port 22 23 80 --export path/to/file --output path/to/file\n");
-  IO_print(&fd, "./exe --import path/to/file\n");
+  printe("example usage:\n");
+  printe("./exe --ip 127.0.0.1 --port 22 --syndelay .5 --savedelay 10\n");
+  printe("./exe --ip 192.168.1.0/24 192.168.2.128-192.168.3.0 --port 22 23 80 --export path/to/file --output path/to/file\n");
+  printe("./exe --import path/to/file\n");
   return 1;
 }
 
@@ -325,24 +334,22 @@ bool param_readexport(pscan_t *pscan, const char *param){
   if(!param){
     return 0;
   }
-  IO_fd_t stdout_fd;
-  IO_fd_set(&stdout_fd, STDOUT_FILENO);
   pscan_t s;
-  IO_print(&stdout_fd, "readexport for file %s\n", param);
+  printe("readexport for file %s\n", param);
   param_import(&s, param);
-  IO_print(&stdout_fd, "total targets: %u\n", s.addr.Current);
+  printe("total targets: %u\n", s.addr.Current);
   for(uintptr_t addri = 0; addri < s.addr.Current; addri++){
     addr_t *addr = &((addr_t *)s.addr.ptr)[addri];
-    IO_print(&stdout_fd, "progress: %.2lf ports: ", (f32_t)addr->progress / addr->port.Current);
+    printe("progress: %.2lf ports: ", (f32_t)addr->progress / addr->port.Current);
     for(uintptr_t porti = 0; porti < addr->port.Current; porti++){
       uint8_t end = (porti + 1) == addr->port.Current ? '\n' : ' ';
-      IO_print(&stdout_fd, "%lu%c", ((uint16_t *)addr->port.ptr)[porti], end);
+      printe("%lu%c", ((uint16_t *)addr->port.ptr)[porti], end);
     }
     for(uintptr_t ipi = 0; ipi < addr->ip.Current; ipi++){
       ip_t *ip = &((ip_t *)addr->ip.ptr)[ipi];
       uint8_t *ipnsrc = (uint8_t *)&ip->rangesrc;
       uint8_t *ipndst = (uint8_t *)&ip->rangedst;
-      IO_print(&stdout_fd, "\tprogress: %.2lf, %lu.%lu.%lu.%lu-%lu.%lu.%lu.%lu\n", progress_percent(ip->rangesrc, ip->rangedst, ip->progress), ipnsrc[3], ipnsrc[2], ipnsrc[1], ipnsrc[0], ipndst[3], ipndst[2], ipndst[1], ipndst[0]);
+      printe("\tprogress: %.2lf, %lu.%lu.%lu.%lu-%lu.%lu.%lu.%lu\n", progress_percent(ip->rangesrc, ip->rangedst, ip->progress), ipnsrc[3], ipnsrc[2], ipnsrc[1], ipnsrc[0], ipndst[3], ipndst[2], ipndst[1], ipndst[0]);
     }
   }
   for(uintptr_t addri = 0; addri < s.addr.Current; addri++){
@@ -375,12 +382,10 @@ bool param_readoutput(pscan_t *pscan, const char *param){
   if(!param){
     return 0;
   }
-  IO_fd_t stdout_fd;
-  IO_fd_set(&stdout_fd, STDOUT_FILENO);
-  IO_print(&stdout_fd, "readoutput for file %s\n", param);
+  printe("readoutput for file %s\n", param);
   FS_file_t file;
   if(FS_file_open(param, &file, O_RDONLY)){
-    IO_print(&stdout_fd, "failed to open file\n");
+    printe("failed to open file\n");
     return 0;
   }
   IO_stat_t st;
@@ -391,23 +396,23 @@ bool param_readoutput(pscan_t *pscan, const char *param){
   }
   IO_off_t size = IO_stat_GetSizeInBytes(&st);
   if(size % sizeof(NET_addr_t)){
-    IO_print(&stdout_fd, "file size %% sizeof(NET_addr_t)\n");
+    printe("file size %% sizeof(NET_addr_t)\n");
     return 0;
   }
   size /= sizeof(NET_addr_t);
-  IO_print(&stdout_fd, "total output: %llu\n", size);
+  printe("total output: %llu\n", size);
   while(size){
     NET_addr_t addr;
     if(FS_file_read(&file, &addr, sizeof(NET_addr_t)) != sizeof(NET_addr_t)){
-      IO_print(&stdout_fd, "failed to read file\n");
+      printe("failed to read file\n");
       return 0;
     }
     uint8_t *ipn = (uint8_t *)&addr.ip;
-    IO_print(&stdout_fd, "%lu.%lu.%lu.%lu:%lu\n", ipn[3], ipn[2], ipn[1], ipn[0], addr.port);
+    printe("%lu.%lu.%lu.%lu:%lu\n", ipn[3], ipn[2], ipn[1], ipn[0], addr.port);
     size--;
   }
   if(FS_file_close(&file)){
-    IO_print(&stdout_fd, "failed to close file\n");
+    printe("failed to close file\n");
     return 0;
   }
   return 0;
