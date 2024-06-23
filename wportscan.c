@@ -419,6 +419,7 @@ bool param_readoutput(pscan_t *pscan, const char *param){
 }
 
 bool _param_invalid(pscan_t *pscan, const char *param){
+  printe("unknown parameter \"%s\"\n", param);
   return param_help(pscan, 0);
 }
 
@@ -470,7 +471,7 @@ bool param(pscan_t *pscan, uintptr_t argc, const char **argv){
     if(MEM_ncmp(argv[pi], MEM_cstreu(argv[pi]), "--", 2)){
       uintptr_t i = 0;
       for(; i < sizeof(plist) / sizeof(plist[0]); i++){
-        if(MEM_ncmp(plist[i].in, MEM_cstreu(plist[i].in), argv[pi], MEM_cstreu(argv[pi]))){
+        if(MEM_ncmp(plist[i].in, MEM_cstreu(plist[i].in), &argv[pi][2], MEM_cstreu(argv[pi]) - 2)){
           break;
         }
       }
@@ -480,14 +481,14 @@ bool param(pscan_t *pscan, uintptr_t argc, const char **argv){
         }
         continue;
       }
-      lastparamcb = plist[i].out;;
+      lastparamcb = plist[i].out;
       if(lastparamcb(pscan, 0)){
         return 1;
       }
     }
     else{
       if(lastparamcb == 0){
-        PR_abort();
+        return param_help(pscan, 0);
       }
       if(lastparamcb(pscan, argv[pi])){
         return 1;
