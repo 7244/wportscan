@@ -119,68 +119,7 @@ bool param_ip(pscan_t *pscan, const char *param){
   }
   addr_t *addr = &((addr_t *)pscan->addr.ptr)[pscan->addr.Current - 1];
   ip_t addrip;
-  if(!STR_ischar_digit(param[0])){
-    #define d(src_m, dst_m) \
-      addrip.rangesrc = src_m; \
-      addrip.rangedst = dst_m; \
-      addrip.progress = progress_init(src_m, dst_m); \
-      VEC_handle(&addr->ip); \
-      ((ip_t *)addr->ip.ptr)[addr->ip.Current] = addrip; \
-      addr->ip.Current++;
-    if(!STR_cmp("APNIC", param)){
-      d(0x01000000, 0x02000000);
-      d(0x0e000000, 0x0f000000);
-      d(0x1b000000, 0x1c000000);
-      d(0x24000000, 0x25000000);
-      d(0x27000000, 0x28000000);
-      d(0x2a000000, 0x2b000000);
-      d(0x31000000, 0x32000000);
-      d(0x3a000000, 0x3b000000);
-      d(0x3b000000, 0x3c000000);
-      d(0x3c000000, 0x3d000000);
-      d(0x3d000000, 0x3e000000);
-      d(0x65000000, 0x66000000);
-      d(0x67000000, 0x68000000);
-      d(0x6a000000, 0x6b000000);
-      d(0x6e000000, 0x6f000000);
-      d(0x6f000000, 0x70000000);
-      d(0x70000000, 0x71000000);
-      d(0x71000000, 0x72000000);
-      d(0x72000000, 0x73000000);
-      d(0x73000000, 0x74000000);
-      d(0x74000000, 0x75000000);
-      d(0x75000000, 0x76000000);
-      d(0x76000000, 0x77000000);
-      d(0x77000000, 0x78000000);
-      d(0x78000000, 0x79000000);
-      d(0x79000000, 0x7a000000);
-      d(0x7a000000, 0x7b000000);
-      d(0x7b000000, 0x7c000000);
-      d(0x7c000000, 0x7d000000);
-      d(0x7d000000, 0x7e000000);
-      d(0x7e000000, 0x7f000000);
-      d(0xa9d00000, 0xa9e00000);
-      d(0xaf000000, 0xb0000000);
-      d(0xb4000000, 0xb5000000);
-      d(0xb6000000, 0xb7000000);
-      d(0xb7000000, 0xb8000000);
-      d(0xca000000, 0xcb000000);
-      d(0xcb000000, 0xcc000000);
-      d(0xd2000000, 0xd3000000);
-      d(0xd3000000, 0xd4000000);
-      d(0xda000000, 0xdb000000);
-      d(0xdb000000, 0xdc000000);
-      d(0xdc000000, 0xdd000000);
-      d(0xdd000000, 0xde000000);
-      d(0xde000000, 0xdf000000);
-      d(0xdf000000, 0xe0000000);
-    }
-    #undef d
-    else{
-      PR_abort();
-    }
-    return 0;
-  }
+
   uint8_t ip[4];
   uintptr_t pi = 0;
   if(!STR_rscancc(param, &pi, "(ov32h)", &ip[0]));
@@ -188,6 +127,7 @@ bool param_ip(pscan_t *pscan, const char *param){
   else{
     PR_abort();
   }
+
   if(param[pi] == '/'){
     pi++;
     uint8_t subnetdiv = 32;
@@ -228,6 +168,48 @@ bool param_ip(pscan_t *pscan, const char *param){
   ((ip_t *)addr->ip.ptr)[addr->ip.Current] = addrip;
   addr->ip.Current++;
   pscan->import = 0;
+  return 0;
+}
+
+bool param_importip(pscan_t *pscan, const char *param){
+  if(!param){
+    return 0;
+  }
+
+  FS_file_t fs;
+  if(FS_file_open(param, &fs, O_RDONLY) != 0){
+    __abort();
+  }
+
+  uint8_t buffer[0x1000];
+  addr_t *addr = &((addr_t *)pscan->addr.ptr)[pscan->addr.Current - 1];
+  ip_t addrip;
+  while(1){
+    FS_ssize_t size = FS_file_read(&fs, buffer, 0x1000);
+    if(size < 0){
+      if(size == -ESHUTDOWN){
+        break;
+      }
+      __abort();
+    }
+    if(size % 8){
+      __abort();
+    }
+    if(size == 0){
+      break;
+    }
+
+    for(uintptr_t i = 0; i < size; i += 8){
+      addrip.rangesrc = *(uint32_t *)&buffer[i + 0];
+      addrip.rangedst = *(uint32_t *)&buffer[i + 4] + 1;
+      addrip.progress = progress_init(addrip.rangesrc, addrip.rangedst);
+      VEC_handle(&addr->ip);
+      ((ip_t *)addr->ip.ptr)[addr->ip.Current] = addrip;
+      addr->ip.Current++;
+    }
+  }
+
+  FS_file_close(&fs);
   return 0;
 }
 
@@ -340,7 +322,7 @@ bool param_readexport(pscan_t *pscan, const char *param){
   printe("total targets: %u\n", s.addr.Current);
   for(uintptr_t addri = 0; addri < s.addr.Current; addri++){
     addr_t *addr = &((addr_t *)s.addr.ptr)[addri];
-    printe("progress: %.2lf ports: ", (f32_t)addr->progress / addr->port.Current);
+    printe("progress: %.8lf ports: ", (f32_t)addr->progress / addr->port.Current);
     for(uintptr_t porti = 0; porti < addr->port.Current; porti++){
       uint8_t end = (porti + 1) == addr->port.Current ? '\n' : ' ';
       printe("%lu%c", ((uint16_t *)addr->port.ptr)[porti], end);
@@ -453,6 +435,7 @@ bool param(pscan_t *pscan, uintptr_t argc, const char **argv){
     {"help", param_help},
     {"new", param_new},
     {"ip", param_ip},
+    {"importip", param_importip},
     {"port", param_port},
     {"import", param_import},
     {"savedelay", param_savedelay},
@@ -471,6 +454,9 @@ bool param(pscan_t *pscan, uintptr_t argc, const char **argv){
     if(MEM_ncmp(argv[pi], MEM_cstreu(argv[pi]), "--", 2)){
       uintptr_t i = 0;
       for(; i < sizeof(plist) / sizeof(plist[0]); i++){
+        if(MEM_cstreu(plist[i].in) != MEM_cstreu(argv[pi]) - 2){
+          continue;
+        }
         if(MEM_ncmp(plist[i].in, MEM_cstreu(plist[i].in), &argv[pi][2], MEM_cstreu(argv[pi]) - 2)){
           break;
         }
