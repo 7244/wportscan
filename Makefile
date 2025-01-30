@@ -1,7 +1,7 @@
 OUTPUT = a.exe
 
 LINK = -lev
-INCLUDE = 
+INCLUDE = -I include
 CS = -Wall -Wextra -Wno-unused-parameter -Wno-sign-compare
 
 debug:

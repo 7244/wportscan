@@ -10,6 +10,18 @@ wportscan is port scan program. Made for extreme long scans (months).
 - Range based scan for IP.
 - Doesn't use multiple threads. (pretty standard for today)
 
+## Installation
+
+```sh
+git clone --depth 1 https://github.com/7244/wportscan && \
+cd wportscan && \
+mkdir include && \
+cd include && \
+git clone --depth 1 https://github.com/7244/WITCH && \
+cd .. && \
+make
+```
+
 ### Usage
 1. scanning 192.168.1.1/24 for telnet port with speed of 100 ip per second
     ```
