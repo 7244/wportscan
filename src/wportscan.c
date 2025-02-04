@@ -224,9 +224,18 @@ bool param_port(pscan_t *pscan, const char *param){
   else{
     PR_abort();
   }
-  VEC_handle(&addr->port);
-  ((uint16_t *)addr->port.ptr)[addr->port.Current] = port;
-  addr->port.Current++;
+  if(port == 0){
+    for(uint16_t i = 0; ++i != 0;){
+      VEC_handle(&addr->port);
+      ((uint16_t *)addr->port.ptr)[addr->port.Current] = i;
+      addr->port.Current++;
+    }
+  }
+  else{
+    VEC_handle(&addr->port);
+    ((uint16_t *)addr->port.ptr)[addr->port.Current] = port;
+    addr->port.Current++;
+  }
   pscan->import = 0;
   return 0;
 }
